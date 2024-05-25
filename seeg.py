@@ -5,7 +5,6 @@ import matplotlib.pyplot as plt
 from scipy.signal import butter, filtfilt, welch, find_peaks, coherence
 import tempfile
 from matplotlib.backends.backend_pdf import PdfPages
-import base64
 
 # Función para filtrar la señal
 def bandpass_filter(data, lowcut, highcut, fs, order=2):
@@ -55,6 +54,7 @@ if uploaded_file is not None:
             f._close()
 
         results = []
+        summary = {}
 
         for ch in range(n):
             signal = signals[ch]
@@ -81,38 +81,65 @@ if uploaded_file is not None:
             # Detectar picos
             peaks = detect_peaks(filtered_signal, height=np.std(filtered_signal), distance=fs//2)
             
-            # Coherencia (ejemplo entre primer y segundo canal si existen)
-            if ch < n - 1:
-                f_coh, Cxy = calculate_coherence(filtered_signal, signals[ch + 1], fs)
+            # Seleccionar los primeros 10 minutos de datos
+            duration_in_seconds = 10 * 60  # 10 minutos
+            if len(filtered_signal) > duration_in_seconds * fs:
+                filtered_signal_10min = filtered_signal[:int(duration_in_seconds * fs)]
             else:
-                f_coh, Cxy = None, None
+                filtered_signal_10min = filtered_signal
             
+            # Detectar picos en los primeros 10 minutos
+            peaks_10min = detect_peaks(filtered_signal_10min, height=np.std(filtered_signal_10min), distance=fs//2)
+            
+            # Calcular media de picos por minuto en los primeros 10 minutos
+            total_peaks_10min = len(peaks_10min)
+            mean_peaks_per_min = total_peaks_10min / 10
+            
+            # Guardar resumen para los canales específicos
+            if signal_labels[ch] in ['C3-P3', 'C4-P4']:
+                side = 'Derecho' if signal_labels[ch] == 'C3-P3' else 'Izquierdo'
+                summary[signal_labels[ch]] = {
+                    'side': side,
+                    'total_peaks_10min': total_peaks_10min,
+                    'mean_peaks_per_min': mean_peaks_per_min,
+                    'alpha_percentage': band_percentage['Alpha']
+                }
+
             # Guarda los resultados del canal
             results.append({
                 'name': signal_labels[ch],
                 'band_percentage': band_percentage,
                 'peaks': peaks,
-                'coherence': (f_coh, Cxy) if f_coh is not None else None
+                'coherence': None  # Inicializar con None
             })
 
+        # Mostrar resumen al principio
         st.header(f"Archivo: {uploaded_file.name}")
-        
+
+        st.subheader("Análisis del Valor de Alpha en Hz")
+        for key, value in summary.items():
+            st.write(f"**Canal {key} ({value['side']})**")
+            st.write(f"Total de picos en los primeros 10 minutos: {value['total_peaks_10min']}")
+            st.write(f"Media de picos por minuto (Hz) en los primeros 10 minutos: {value['mean_peaks_per_min']:.2f}")
+            st.write(f"Porcentaje de Canal Alpha: {value['alpha_percentage']:.2f}%")
+
+        # Preparar PDF
         pdf_filename = "EEG_analysis.pdf"
         pdf = PdfPages(pdf_filename)
 
         # Mostrar resultados y gráficos en Streamlit
         for channel in results:
             st.header(f"Canal: {channel['name']}")
-            
+
             # Mostrar porcentajes de bandas
             st.subheader("Porcentaje en Bandas de Frecuencia")
             for band_name, percentage in channel['band_percentage'].items():
                 st.markdown(f"<span style='color:blue; font-weight:bold;'>{band_name}:</span> {percentage:.2f}%", unsafe_allow_html=True)
-            
+
             # Mostrar número de picos detectados
             st.subheader("Picos Detectados")
             st.write(f"Cantidad de picos detectados: {len(channel['peaks'])}")
-            
+
             # Graficar señal filtrada y picos
             fig, ax = plt.subplots()
             ax.plot(signal, label='Señal original')
@@ -124,7 +151,7 @@ if uploaded_file is not None:
             st.pyplot(fig)
             pdf.savefig(fig)
             plt.close(fig)
-            
+
             # Graficar coherencia si está disponible
             if channel['coherence'] is not None:
                 f_coh, Cxy = channel['coherence']
