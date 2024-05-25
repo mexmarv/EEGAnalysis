@@ -3,6 +3,3 @@ pyedflib
 numpy
 matplotlib
 scipy
-tempfile
-matplotlib
-base64
