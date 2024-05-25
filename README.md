@@ -1,3 +1,4 @@
+![EEG Patient](http://url/to/img.png)
 # EEG Analysis
 Streamlit python app that does quantitative channels, peaks and coherence analysis of EEG (.edf files)
 
