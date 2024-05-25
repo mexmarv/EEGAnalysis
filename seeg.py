@@ -33,10 +33,7 @@ def calculate_coherence(signal1, signal2, fs):
     return f, Cxy
 
 # Aplicación Streamlit
-import streamlit as st
-st.image('https://neuro-praxis-dus.de/media/pages/diagnostik/elektroenzephalographie/modules/eeg-text/5db7120a26-1673453655/emptyname-326-870x-q75.jpg', width=400, caption='EEG')
-st.title("Análisis Quantitativo de Electroencefalogramas.")
-st.write("Por Marvin Nahmias. Bandas, Picos, Filtrado de ruido y Coherencia.")
+st.title("Análisis de Archivos EDF")
 st.write("Sube un archivo EDF para analizar las señales EEG.")
 
 uploaded_file = st.file_uploader("Elige un archivo EDF", type=["edf"])
@@ -75,6 +72,12 @@ if uploaded_file is not None:
             # Calcula la potencia en cada banda
             band_power = {name: bandpower(filtered_signal, fs, band) for name, band in zip(band_names, bands)}
             
+            # Calcular la potencia total
+            total_power = sum(band_power.values())
+            
+            # Calcular el porcentaje de cada banda
+            band_percentage = {name: (power / total_power) * 100 for name, power in band_power.items()}
+            
             # Detectar picos
             peaks = detect_peaks(filtered_signal, height=np.std(filtered_signal), distance=fs//2)
             
@@ -87,7 +90,7 @@ if uploaded_file is not None:
             # Guarda los resultados del canal
             results.append({
                 'name': signal_labels[ch],
-                'band_power': band_power,
+                'band_percentage': band_percentage,
                 'peaks': peaks,
                 'coherence': (f_coh, Cxy) if f_coh is not None else None
             })
@@ -101,10 +104,10 @@ if uploaded_file is not None:
         for channel in results:
             st.header(f"Canal: {channel['name']}")
             
-            # Mostrar potencias de bandas
-            st.subheader("Potencia en Bandas de Frecuencia")
-            for band_name, power in channel['band_power'].items():
-                st.markdown(f"<span style='color:blue; font-weight:bold;'>{band_name}:</span> {power}", unsafe_allow_html=True)
+            # Mostrar porcentajes de bandas
+            st.subheader("Porcentaje en Bandas de Frecuencia")
+            for band_name, percentage in channel['band_percentage'].items():
+                st.markdown(f"<span style='color:blue; font-weight:bold;'>{band_name}:</span> {percentage:.2f}%", unsafe_allow_html=True)
             
             # Mostrar número de picos detectados
             st.subheader("Picos Detectados")
