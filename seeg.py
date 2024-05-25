@@ -34,7 +34,7 @@ def calculate_coherence(signal1, signal2, fs):
 
 # Aplicación Streamlit
 import streamlit as st
-st.image('https://d2jx2rerrg6sh3.cloudfront.net/image-handler/ts/20220225124514/ri/1200/src/images/news/ImageForNews_705573_16458111118584659.jpg', caption='EEG')
+st.image('https://neuro-praxis-dus.de/media/pages/diagnostik/elektroenzephalographie/modules/eeg-text/5db7120a26-1673453655/emptyname-326-870x-q75.jpg', caption='EEG')
 st.title("Análisis Quantitativo de Electroencefalogramas.")
 st.write("Por Marvin Nahmias. Bandas, Picos, Filtrado de ruido y Coherencia.")
 st.write("Sube un archivo EDF para analizar las señales EEG.")
