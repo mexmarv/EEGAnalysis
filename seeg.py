@@ -33,9 +33,9 @@ def calculate_coherence(signal1, signal2, fs):
     return f, Cxy
 
 # Aplicación Streamlit
-st.title("Análisis Quantitativo: Picos y Coherencia de Electroencefalogramas.")
-st.write("Por Marvin Nahmias.")
-st.write("Sube un archivo EDF para analizar las señales EEG porfavor.")
+st.title("Análisis Quantitativo de Electroencefalogramas.")
+st.write("Por Marvin Nahmias. Bandas, Picos, Filtrado de ruido y Coherencia.")
+st.write("Sube un archivo EDF para analizar las señales EEG.")
 
 uploaded_file = st.file_uploader("Elige un archivo EDF", type=["edf"])
 
