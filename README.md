@@ -1,4 +1,4 @@
-![EEG Patient]([[http://url/to/img.png](https://neuro-praxis-dus.de/media/pages/diagnostik/elektroenzephalographie/modules/eeg-text/5db7120a26-1673453655/emptyname-326-870x-q75.jpg)])
+![EEG Patient](https://neuro-praxis-dus.de/media/pages/diagnostik/elektroenzephalographie/modules/eeg-text/5db7120a26-1673453655/emptyname-326-870x-q75.jpg)
 # EEG Analysis
 Streamlit python app that does quantitative channels, peaks and coherence analysis of EEG (.edf files)
 
