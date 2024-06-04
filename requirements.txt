@@ -3,3 +3,4 @@ pyedflib
 numpy
 matplotlib
 scipy
+mne
