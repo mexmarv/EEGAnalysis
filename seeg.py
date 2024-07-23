@@ -5,7 +5,7 @@ from scipy.signal import butter, filtfilt, welch, find_peaks, coherence
 import tempfile
 from matplotlib.backends.backend_pdf import PdfPages
 import mne
-import pyedflib
+
 
 # Function to filter the signal
 def bandpass_filter(data, lowcut, highcut, fs, order=2):
