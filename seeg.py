@@ -4,7 +4,6 @@ import matplotlib.pyplot as plt
 from scipy.signal import butter, filtfilt, welch, find_peaks, coherence
 import tempfile
 from matplotlib.backends.backend_pdf import PdfPages
-import mne
 import pyedflib
 
 # Function to filter the signal
