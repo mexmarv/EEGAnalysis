@@ -1,4 +1,4 @@
-pyedf
+edf-reader
 scipy
 numpy
 matplotlib
