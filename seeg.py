@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from scipy.signal import butter, filtfilt, welch, find_peaks, coherence
 import tempfile
 from matplotlib.backends.backend_pdf import PdfPages
-import pyedf
+import edfreader
 
 # Function to filter the signal
 def bandpass_filter(data, lowcut, highcut, fs, order=2):
@@ -31,43 +31,19 @@ def calculate_coherence(signal1, signal2, fs):
     f, Cxy = coherence(signal1, signal2, fs=fs, nperseg=1024)
     return f, Cxy
 
-# Validate EDF File
-def validate_edf_file(file):
-    try:
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.edf') as tmpfile:
-            tmpfile.write(file.read())
-            tmpfile.flush()
-            tmpfile.seek(0)
-            # Try reading the file with pyedf
-            with pyedf.EdfReader(tmpfile.name) as f:
-                # Read signals to ensure file is valid
-                _ = [f.readSignal(i) for i in range(f.signals_in_file)]
-        return True
-    except Exception as e:
-        st.error(f"Error al procesar el archivo EDF: {e}")
-        return False
-
-# Load EDF File
+# Caching the data
 @st.cache_data
 def load_edf(file):
     try:
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.edf') as tmpfile:
-            tmpfile.write(file.read())
-            tmpfile.flush()
-            tmpfile.seek(0)
-            # Read the EDF file using pyedf
-            f = pyedf.EdfReader(tmpfile.name)
-            signals = [f.readSignal(i) for i in range(f.signals_in_file)]
-            signal_labels = f.getSignalLabels()
-            fs = f.getSampleFrequency(0)
-            return signals, signal_labels, fs
-    except ValueError as ve:
-        st.error(f"Error al cargar el archivo EDF: Valor no válido encontrado: {ve}")
-    except TypeError as te:
-        st.error(f"Error al cargar el archivo EDF: Tipo de dato no esperado: {te}")
+        reader = edfreader.EdfReader(file)
+        signals = [reader.read_signal(i) for i in range(reader.signals_in_file)]
+        signal_labels = reader.get_signal_labels()
+        fs = reader.get_sample_frequency(0)
+        reader.close()
+        return signals, signal_labels, fs
     except Exception as e:
-        st.error(f"Error al cargar el archivo EDF: {e}")
-    return [], [], 0
+        st.error(f"Error al procesar el archivo EDF: {e}")
+        return None, None, None
 
 # Streamlit App
 st.title("Análisis de EEG.")
@@ -76,14 +52,10 @@ st.write("Sube un archivo EDF para analizar las señales EEG.")
 uploaded_file = st.file_uploader("Elige un archivo EDF", type=["edf"])
 
 if uploaded_file is not None:
-    if not validate_edf_file(uploaded_file):
-        st.error("Error al cargar el archivo EDF: Solo se permiten archivos EDF.")
-    else:
-        with st.spinner('Cargando archivo...'):
-            signals, signal_labels, fs = load_edf(uploaded_file)
-            if not signals:
-                st.stop()  # Stop execution if there's an issue loading the file
+    with st.spinner('Cargando archivo...'):
+        signals, signal_labels, fs = load_edf(uploaded_file)
 
+    if signals is not None:
         st.sidebar.title("Seleccionar Canal para Analizar")
         selected_channel = st.sidebar.selectbox("Selecciona un canal:", signal_labels)
 
@@ -167,7 +139,7 @@ if uploaded_file is not None:
                 st.pyplot(fig)
 
         if st.checkbox("Topographic Option"):
-            st.warning("La opción topográfica no está disponible con `pyedf` en esta versión. Considere usar MNE para análisis topográfico.")
+            st.warning("La opción topográfica no está implementada con 'edf-reader'.")
 
         if st.button("Generar Reporte Completo en PDF"):
             pdf_filename = "Reporte_Completo_EEG.pdf"
