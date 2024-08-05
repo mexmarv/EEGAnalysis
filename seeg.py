@@ -1,12 +1,10 @@
 import streamlit as st
+import pyedflib
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.signal import butter, filtfilt, welch, find_peaks, coherence
 import tempfile
 from matplotlib.backends.backend_pdf import PdfPages
-import mne
-import pyedflib
-
 
 # Function to filter the signal
 def bandpass_filter(data, lowcut, highcut, fs, order=2):
@@ -138,35 +136,6 @@ if uploaded_file is not None:
             ax.set_xlabel('Frecuencia (Hz)')
             ax.set_ylabel('Coherencia')
             st.pyplot(fig)
-
-    if st.checkbox("Topographic Option"):
-        montage = mne.channels.make_standard_montage('standard_1020')
-        missing_channels = set(montage.ch_names) - set(signal_labels)
-
-        if missing_channels:
-            st.warning(f"No puedo graficar el Topográfico porque los canales faltantes son: {', '.join(missing_channels)}")
-        else:
-            try:
-                info = mne.create_info(ch_names=signal_labels, sfreq=fs, ch_types='eeg')
-                raw = mne.io.RawArray(np.array(signals), info)
-                raw.set_montage(montage, on_missing='ignore')
-
-                # Plot power spectral density (PSD) topomap
-                fig_psd = raw.plot_psd_topomap(ch_type='eeg', normalize=True, show=False)
-
-                # Alternatively, plot topomap at a specific time point
-                # Here, we use an average over a short period as an example
-                tmin, tmax = 0, 60  # Time window in seconds
-                epochs = mne.make_fixed_length_epochs(raw, duration=2, overlap=1, preload=True)
-                evoked = epochs.average()
-                times = [0.1, 0.2, 0.3]  # Times in seconds at which to plot topomaps
-                fig_topomap = evoked.plot_topomap(times=times, ch_type='eeg', show=False)
-
-                # Display the plots in Streamlit
-                st.pyplot(fig_psd)
-                st.pyplot(fig_topomap)
-            except RuntimeError as e:
-                st.error(f"Error en el montaje: {e}")
 
     if st.button("Generar Reporte Completo en PDF"):
         pdf_filename = "Reporte_Completo_EEG.pdf"
