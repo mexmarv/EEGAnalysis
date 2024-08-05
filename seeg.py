@@ -3,8 +3,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.signal import butter, filtfilt, welch, find_peaks, coherence
 import tempfile
-from matplotlib.backends.backend_pdf import PdfPages
-import edfreader
+import pyedflib
+from io import BytesIO
 
 # Function to filter the signal
 def bandpass_filter(data, lowcut, highcut, fs, order=2):
@@ -35,11 +35,13 @@ def calculate_coherence(signal1, signal2, fs):
 @st.cache_data
 def load_edf(file):
     try:
-        reader = edfreader.EdfReader(file)
-        signals = [reader.read_signal(i) for i in range(reader.signals_in_file)]
-        signal_labels = reader.get_signal_labels()
-        fs = reader.get_sample_frequency(0)
-        reader.close()
+        # Use BytesIO to handle the uploaded file
+        with BytesIO(file.read()) as tmpfile:
+            f = pyedflib.EdfReader(tmpfile)
+            signals = [f.readSignal(i) for i in range(f.signals_in_file)]
+            signal_labels = f.getSignalLabels()
+            fs = f.getSampleFrequency(0)
+            f._close()
         return signals, signal_labels, fs
     except Exception as e:
         st.error(f"Error al procesar el archivo EDF: {e}")
@@ -139,58 +141,86 @@ if uploaded_file is not None:
                 st.pyplot(fig)
 
         if st.checkbox("Topographic Option"):
-            st.warning("La opción topográfica no está implementada con 'edf-reader'.")
+            import mne  # Import mne here since it is optional
+            montage = mne.channels.make_standard_montage('standard_1020')
+            missing_channels = set(montage.ch_names) - set(signal_labels)
 
-        if st.button("Generar Reporte Completo en PDF"):
-            pdf_filename = "Reporte_Completo_EEG.pdf"
-            with PdfPages(pdf_filename) as pdf:
-                for i, signal_label in enumerate(signal_labels):
-                    signal = signals[i]
-                    filtered_signal = bandpass_filter(signal, 0.5, 50, fs)
-                    filtered_signal = filtered_signal[:len(signal)]
-                    
-                    band_power = {name: bandpower(filtered_signal, fs, band) for name, band in zip(band_names, bands)}
-                    total_power = sum(band_power.values())
-                    band_percentage = {name: (power / total_power) * 100 for name, power in band_power.items()}
-                    peaks = detect_peaks(filtered_signal, height=np.std(filtered_signal), distance=fs//2)
-                    
-                    duration_in_seconds = 10 * 60
-                    if len(filtered_signal) > duration_in_seconds * fs:
-                        filtered_signal_10min = filtered_signal[:int(duration_in_seconds * fs)]
-                    else:
-                        filtered_signal_10min = filtered_signal
-                    
-                    peaks_10min = detect_peaks(filtered_signal_10min, height=np.std(filtered_signal_10min), distance=fs//2)
-                    total_peaks_10min = len(peaks_10min)
-                    mean_peaks_per_min = total_peaks_10min / 10
+            if missing_channels:
+                st.warning(f"No puedo graficar el Topográfico porque los canales faltantes son: {', '.join(missing_channels)}")
+            else:
+                try:
+                    info = mne.create_info(ch_names=signal_labels, sfreq=fs, ch_types='eeg')
+                    raw = mne.io.RawArray(np.array(signals), info)
+                    raw.set_montage(montage, on_missing='ignore')
 
+                    # Plot power spectral density (PSD) topomap
+                    fig_psd = raw.plot_psd_topomap(ch_type='eeg', normalize=True, show=False)
+
+                    # Alternatively, plot topomap at a specific time point
+                    # Here, we use an average over a short period as an example
+                    tmin, tmax = 0, 60  # Time window in seconds
+                    epochs = mne.make_fixed_length_epochs(raw, duration=2, overlap=1, preload=True)
+                    evoked = epochs.average()
+                    times = [0.1, 0.2, 0.3]  # Times in seconds at which to plot topomaps
+                    fig_topomap = evoked.plot_topomap(times=times, ch_type='eeg', show=False)
+
+                    # Display the plots in Streamlit
+                    st.pyplot(fig_psd)
+                    st.pyplot(fig_topomap)
+                except RuntimeError as e:
+                    st.error(f"Error en el montaje: {e}")
+
+    if st.button("Generar Reporte Completo en PDF"):
+        from matplotlib.backends.backend_pdf import PdfPages
+        pdf_filename = "Reporte_Completo_EEG.pdf"
+        with PdfPages(pdf_filename) as pdf:
+            for i, signal_label in enumerate(signal_labels):
+                signal = signals[i]
+                filtered_signal = bandpass_filter(signal, 0.5, 50, fs)
+                filtered_signal = filtered_signal[:len(signal)]
+                
+                band_power = {name: bandpower(filtered_signal, fs, band) for name, band in zip(band_names, bands)}
+                total_power = sum(band_power.values())
+                band_percentage = {name: (power / total_power) * 100 for name, power in band_power.items()}
+                peaks = detect_peaks(filtered_signal, height=np.std(filtered_signal), distance=fs//2)
+                
+                duration_in_seconds = 10 * 60
+                if len(filtered_signal) > duration_in_seconds * fs:
+                    filtered_signal_10min = filtered_signal[:int(duration_in_seconds * fs)]
+                else:
+                    filtered_signal_10min = filtered_signal
+                
+                peaks_10min = detect_peaks(filtered_signal_10min, height=np.std(filtered_signal_10min), distance=fs//2)
+                total_peaks_10min = len(peaks_10min)
+                mean_peaks_per_min = total_peaks_10min / 10
+
+                fig, ax = plt.subplots()
+                ax.plot(signal, label='Señal original')
+                ax.plot(filtered_signal, label='Señal filtrada')
+                valid_peaks = [p for p in peaks if p < len(filtered_signal)]
+                ax.plot(valid_peaks, filtered_signal[valid_peaks], "x", label='Picos detectados')
+                ax.set_title(f"Señal y Picos Detectados - {signal_label}")
+                ax.legend()
+                pdf.savefig(fig)
+                plt.close(fig)
+
+                if i < len(signal_labels) - 1:
+                    other_signal = signals[i + 1]
+                    f_coh, Cxy = calculate_coherence(filtered_signal, other_signal, fs)
                     fig, ax = plt.subplots()
-                    ax.plot(signal, label='Señal original')
-                    ax.plot(filtered_signal, label='Señal filtrada')
-                    valid_peaks = [p for p in peaks if p < len(filtered_signal)]
-                    ax.plot(valid_peaks, filtered_signal[valid_peaks], "x", label='Picos detectados')
-                    ax.set_title(f"Señal y Picos Detectados - {signal_label}")
-                    ax.legend()
+                    ax.plot(f_coh, Cxy)
+                    ax.set_title(f"Coherencia - {signal_label} y {signal_labels[i + 1]}")
+                    ax.set_xlabel('Frecuencia (Hz)')
+                    ax.set_ylabel('Coherencia')
                     pdf.savefig(fig)
                     plt.close(fig)
 
-                    if i < len(signal_labels) - 1:
-                        other_signal = signals[i + 1]
-                        f_coh, Cxy = calculate_coherence(filtered_signal, other_signal, fs)
-                        fig, ax = plt.subplots()
-                        ax.plot(f_coh, Cxy)
-                        ax.set_title(f"Coherencia - {signal_label} y {signal_labels[i + 1]}")
-                        ax.set_xlabel('Frecuencia (Hz)')
-                        ax.set_ylabel('Coherencia')
-                        pdf.savefig(fig)
-                        plt.close(fig)
+            st.success("El reporte PDF se ha generado correctamente.")
 
-                st.success("El reporte PDF se ha generado correctamente.")
-
-            with open(pdf_filename, "rb") as file:
-                btn = st.download_button(
-                    label="Descargar Reporte Completo",
-                    data=file,
-                    file_name=pdf_filename,
-                    mime="application/octet-stream"
-                )
+        with open(pdf_filename, "rb") as file:
+            btn = st.download_button(
+                label="Descargar Reporte Completo",
+                data=file,
+                file_name=pdf_filename,
+                mime="application/octet-stream"
+            )
