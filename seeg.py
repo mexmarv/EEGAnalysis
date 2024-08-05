@@ -166,7 +166,7 @@ if uploaded_file is not None:
                 st.pyplot(fig_psd)
                 st.pyplot(fig_topomap)
             except RuntimeError as e:
-                    st.error(f"Error en el montaje: {e}")
+                st.error(f"Error en el montaje: {e}")
 
     if st.button("Generar Reporte Completo en PDF"):
         pdf_filename = "Reporte_Completo_EEG.pdf"
