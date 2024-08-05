@@ -115,20 +115,20 @@ if uploaded_file is not None:
         st.write(f"Media de picos por minuto (Hz) en los primeros 10 minutos: {mean_peaks_per_min:.2f}")
 
         # Plot topographic map
-        st.subheader("Topographic Plot")
-        raw = mne.io.RawArray(signal.reshape(1, -1), mne.create_info(ch_names=[selected_channel], sfreq=fs))
-        fig = mne.viz.plot_topomap(raw.get_data()[0], pos=mne.channels.make_standard_montage('standard_1020').get_pos(), show=False)
-        st.pyplot(fig)
+        # st.subheader("Topographic Plot")
+        # raw = mne.io.RawArray(signal.reshape(1, -1), mne.create_info(ch_names=[selected_channel], sfreq=fs))
+        # fig = mne.viz.plot_topomap(raw.get_data()[0], pos=mne.channels.make_standard_montage('standard_1020').get_pos(), show=False)
+        # st.pyplot(fig)
         
         # Graficar señal filtrada y picos
-        fig, ax = plt.subplots()
-        ax.plot(signal, label='Señal original')
-        ax.plot(filtered_signal, label='Señal filtrada')
-        valid_peaks = [p for p in peaks if p < len(filtered_signal)]
-        ax.plot(valid_peaks, filtered_signal[valid_peaks], "x", label='Picos detectados')
-        ax.set_title(f"Señal y Picos Detectados - {selected_channel}")
-        ax.legend()
-        st.pyplot(fig)
+        # fig, ax = plt.subplots()
+        # ax.plot(signal, label='Señal original')
+        # ax.plot(filtered_signal, label='Señal filtrada')
+        # valid_peaks = [p for p in peaks if p < len(filtered_signal)]
+        # ax.plot(valid_peaks, filtered_signal[valid_peaks], "x", label='Picos detectados')
+        # ax.set_title(f"Señal y Picos Detectados - {selected_channel}")
+        # ax.legend()
+        # st.pyplot(fig)
 
         st.subheader("Coherencia con otro canal")
         other_channel = st.selectbox("Selecciona otro canal para análisis de coherencia", [ch for ch in signal_labels if ch != selected_channel])
