@@ -1,6 +1,6 @@
-streamlit
-pyedflib
-numpy
-matplotlib
-scipy
-mne
+streamlit==1.26.0
+numpy==1.21.6
+scipy==1.8.0
+matplotlib==3.5.1
+mne==0.24.0
+pyedflib==0.1.30
