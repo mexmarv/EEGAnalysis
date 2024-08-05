@@ -2,7 +2,7 @@ import streamlit as st
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.signal import butter, filtfilt, welch, find_peaks, coherence
-import edfpy
+import pyedflib
 from io import BytesIO
 
 # Function to filter the signal
@@ -36,10 +36,10 @@ def load_edf(file):
     try:
         # Use BytesIO to handle the uploaded file
         with BytesIO(file.read()) as tmpfile:
-            with edfpy.EdfReader(tmpfile) as f:
-                signals = [f.read_signal(i) for i in range(f.signals_in_file)]
-                signal_labels = f.get_signal_labels()
-                fs = f.get_sample_frequency(0)
+            with pyedflib.EdfReader(tmpfile) as f:
+                signals = [f.readSignal(i) for i in range(f.signals_in_file)]
+                signal_labels = f.getSignalLabels()
+                fs = f.getSampleFrequency(0)
         return signals, signal_labels, fs
     except Exception as e:
         st.error(f"Error al procesar el archivo EDF: {e}")
@@ -175,7 +175,6 @@ if uploaded_file is not None:
             for i, signal_label in enumerate(signal_labels):
                 signal = signals[i]
                 filtered_signal = bandpass_filter(signal, 0.5, 50, fs)
-                filtered_signal = filtered_signal[:len(signal)]
                 peaks = detect_peaks(filtered_signal, height=np.std(filtered_signal), distance=fs//2)
 
                 duration_in_seconds = 10 * 60
