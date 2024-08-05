@@ -1,5 +1,6 @@
 streamlit
-pyedflib
+mne
+tempfile
 numpy
 matplotlib
 scipy
