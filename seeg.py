@@ -34,26 +34,34 @@ def calculate_coherence(signal1, signal2, fs):
 
 # Validate EDF File
 def validate_edf_file(file):
-    if not file.name.endswith('.edf'):
-        return False
     try:
-        # Check if the file can be read as an EDF file
-        file.seek(0)
-        raw = mne.io.read_raw_edf(file, preload=False)
+        # Save the uploaded file to a temporary file
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.edf') as tmpfile:
+            tmpfile.write(file.read())
+            tmpfile.flush()
+            tmpfile.seek(0)
+            # Check if the file can be read as an EDF file
+            mne.io.read_raw_edf(tmpfile.name, preload=False)
         return True
     except Exception as e:
         st.error(f"Error al procesar el archivo EDF: {e}")
         return False
 
-# Caching the data
+# Load EDF File
 @st.cache_data
 def load_edf(file):
     try:
-        raw = mne.io.read_raw_edf(file, preload=True)
-        signals = [raw.get_data(picks=[i])[0] for i in range(raw.info['nchan'])]
-        signal_labels = raw.info['ch_names']
-        fs = raw.info['sfreq']
-        return signals, signal_labels, fs
+        # Save the uploaded file to a temporary file
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.edf') as tmpfile:
+            tmpfile.write(file.read())
+            tmpfile.flush()
+            tmpfile.seek(0)
+            # Read the EDF file using MNE
+            raw = mne.io.read_raw_edf(tmpfile.name, preload=True)
+            signals = [raw.get_data(picks=[i])[0] for i in range(raw.info['nchan'])]
+            signal_labels = raw.info['ch_names']
+            fs = raw.info['sfreq']
+            return signals, signal_labels, fs
     except Exception as e:
         st.error(f"Error al cargar el archivo EDF: {e}")
         return [], [], 0
