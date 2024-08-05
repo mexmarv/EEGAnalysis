@@ -4,8 +4,7 @@ import matplotlib.pyplot as plt
 from scipy.signal import butter, filtfilt, welch, find_peaks, coherence
 import tempfile
 from matplotlib.backends.backend_pdf import PdfPages
-import mne
-import io
+import pyedf
 
 # Function to filter the signal
 def bandpass_filter(data, lowcut, highcut, fs, order=2):
@@ -39,8 +38,10 @@ def validate_edf_file(file):
             tmpfile.write(file.read())
             tmpfile.flush()
             tmpfile.seek(0)
-            # Try reading the file with mne
-            mne.io.read_raw_edf(tmpfile.name, preload=False)
+            # Try reading the file with pyedf
+            with pyedf.EdfReader(tmpfile.name) as f:
+                # Read signals to ensure file is valid
+                _ = [f.readSignal(i) for i in range(f.signals_in_file)]
         return True
     except Exception as e:
         st.error(f"Error al procesar el archivo EDF: {e}")
@@ -54,11 +55,11 @@ def load_edf(file):
             tmpfile.write(file.read())
             tmpfile.flush()
             tmpfile.seek(0)
-            # Read the EDF file using MNE
-            raw = mne.io.read_raw_edf(tmpfile.name, preload=True)
-            signals = [raw.get_data(picks=[i])[0] for i in range(raw.info['nchan'])]
-            signal_labels = raw.info['ch_names']
-            fs = raw.info['sfreq']
+            # Read the EDF file using pyedf
+            f = pyedf.EdfReader(tmpfile.name)
+            signals = [f.readSignal(i) for i in range(f.signals_in_file)]
+            signal_labels = f.getSignalLabels()
+            fs = f.getSampleFrequency(0)
             return signals, signal_labels, fs
     except ValueError as ve:
         st.error(f"Error al cargar el archivo EDF: Valor no válido encontrado: {ve}")
@@ -166,33 +167,7 @@ if uploaded_file is not None:
                 st.pyplot(fig)
 
         if st.checkbox("Topographic Option"):
-            montage = mne.channels.make_standard_montage('standard_1020')
-            missing_channels = set(montage.ch_names) - set(signal_labels)
-
-            if missing_channels:
-                st.warning(f"No puedo graficar el Topográfico porque los canales faltantes son: {', '.join(missing_channels)}")
-            else:
-                try:
-                    info = mne.create_info(ch_names=signal_labels, sfreq=fs, ch_types='eeg')
-                    raw = mne.io.RawArray(np.array(signals), info)
-                    raw.set_montage(montage, on_missing='ignore')
-
-                    # Plot power spectral density (PSD) topomap
-                    fig_psd = raw.plot_psd_topomap(ch_type='eeg', normalize=True, show=False)
-
-                    # Alternatively, plot topomap at a specific time point
-                    # Here, we use an average over a short period as an example
-                    tmin, tmax = 0, 60  # Time window in seconds
-                    epochs = mne.make_fixed_length_epochs(raw, duration=2, overlap=1, preload=True)
-                    evoked = epochs.average()
-                    times = [0.1, 0.2, 0.3]  # Times in seconds at which to plot topomaps
-                    fig_topomap = evoked.plot_topomap(times=times, ch_type='eeg', show=False)
-
-                    # Display the plots in Streamlit
-                    st.pyplot(fig_psd)
-                    st.pyplot(fig_topomap)
-                except RuntimeError as e:
-                    st.error(f"Error en el montaje: {e}")
+            st.warning("La opción topográfica no está disponible con `pyedf` en esta versión. Considere usar MNE para análisis topográfico.")
 
         if st.button("Generar Reporte Completo en PDF"):
             pdf_filename = "Reporte_Completo_EEG.pdf"
