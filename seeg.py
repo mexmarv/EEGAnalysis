@@ -2,7 +2,7 @@ import streamlit as st
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.signal import butter, filtfilt, welch, find_peaks, coherence
-from edfpy import EDFReader  # Use edfpy library
+import edflib  # Using edflib library
 from io import BytesIO
 
 # Function to filter the signal
@@ -36,7 +36,7 @@ def load_edf(file):
     try:
         # Use BytesIO to handle the uploaded file
         with BytesIO(file.read()) as tmpfile:
-            with EDFReader(tmpfile) as f:
+            with edflib.EdfReader(tmpfile) as f:
                 signals = [f.read_signal(i) for i in range(f.num_signals)]
                 signal_labels = f.signal_labels
                 fs = f.sample_rate
