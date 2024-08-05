@@ -2,9 +2,9 @@ import streamlit as st
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.signal import butter, filtfilt, welch, find_peaks, coherence
-import mne
 import tempfile
 from matplotlib.backends.backend_pdf import PdfPages
+import mne
 
 # Function to filter the signal
 def bandpass_filter(data, lowcut, highcut, fs, order=2):
@@ -37,21 +37,26 @@ def load_edf(file):
     with tempfile.NamedTemporaryFile(delete=False) as tmpfile:
         tmpfile.write(file.read())
         tmpfile.flush()
-        raw = mne.io.read_raw_edf(tmpfile.name, preload=True)
-        signals = raw.get_data()
-        signal_labels = raw.ch_names
-        fs = int(raw.info['sfreq'])
+        tmpfile.seek(0)
+        f = mne.io.read_raw_edf(tmpfile.name, preload=True)
+        signals = f.get_data()
+        signal_labels = f.ch_names
+        fs = int(f.info['sfreq'])
     return signals, signal_labels, fs
 
 # Streamlit App
-st.title("Análisis de EEG")
+st.title("Análisis de EEG.")
 st.write("Sube un archivo EDF para analizar las señales EEG.")
 
 uploaded_file = st.file_uploader("Elige un archivo EDF", type=["edf"])
 
 if uploaded_file is not None:
     with st.spinner('Cargando archivo...'):
-        signals, signal_labels, fs = load_edf(uploaded_file)
+        try:
+            signals, signal_labels, fs = load_edf(uploaded_file)
+        except Exception as e:
+            st.error(f"Error al cargar el archivo EDF: {e}")
+            st.stop()
 
     st.sidebar.title("Seleccionar Canal para Analizar")
     selected_channel = st.sidebar.selectbox("Selecciona un canal:", signal_labels)
@@ -182,7 +187,7 @@ if uploaded_file is not None:
                     filtered_signal_10min = filtered_signal[:int(duration_in_seconds * fs)]
                 else:
                     filtered_signal_10min = filtered_signal
-                
+                    
                 peaks_10min = detect_peaks(filtered_signal_10min, height=np.std(filtered_signal_10min), distance=fs//2)
                 total_peaks_10min = len(peaks_10min)
                 mean_peaks_per_min = total_peaks_10min / 10
