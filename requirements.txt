@@ -1,6 +1,5 @@
-streamlit
+pyedf
+scipy
 numpy
 matplotlib
-scipy
-mne
-pyedf
+streamlit
