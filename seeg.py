@@ -35,12 +35,11 @@ def calculate_coherence(signal1, signal2, fs):
 # Validate EDF File
 def validate_edf_file(file):
     try:
-        # Save the uploaded file to a temporary file
         with tempfile.NamedTemporaryFile(delete=False, suffix='.edf') as tmpfile:
             tmpfile.write(file.read())
             tmpfile.flush()
             tmpfile.seek(0)
-            # Check if the file can be read as an EDF file
+            # Try reading the file with mne
             mne.io.read_raw_edf(tmpfile.name, preload=False)
         return True
     except Exception as e:
@@ -51,7 +50,6 @@ def validate_edf_file(file):
 @st.cache_data
 def load_edf(file):
     try:
-        # Save the uploaded file to a temporary file
         with tempfile.NamedTemporaryFile(delete=False, suffix='.edf') as tmpfile:
             tmpfile.write(file.read())
             tmpfile.flush()
@@ -62,9 +60,13 @@ def load_edf(file):
             signal_labels = raw.info['ch_names']
             fs = raw.info['sfreq']
             return signals, signal_labels, fs
+    except ValueError as ve:
+        st.error(f"Error al cargar el archivo EDF: Valor no válido encontrado: {ve}")
+    except TypeError as te:
+        st.error(f"Error al cargar el archivo EDF: Tipo de dato no esperado: {te}")
     except Exception as e:
         st.error(f"Error al cargar el archivo EDF: {e}")
-        return [], [], 0
+    return [], [], 0
 
 # Streamlit App
 st.title("Análisis de EEG.")
