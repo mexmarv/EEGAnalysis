@@ -2,9 +2,9 @@ import streamlit as st
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.signal import butter, filtfilt, welch, find_peaks, coherence
+import mne
 import tempfile
 from matplotlib.backends.backend_pdf import PdfPages
-import pyedflib
 
 # Function to filter the signal
 def bandpass_filter(data, lowcut, highcut, fs, order=2):
@@ -37,16 +37,14 @@ def load_edf(file):
     with tempfile.NamedTemporaryFile(delete=False) as tmpfile:
         tmpfile.write(file.read())
         tmpfile.flush()
-        tmpfile.seek(0)
-        f = pyedflib.EdfReader(tmpfile.name)
-        signals = [f.readSignal(i) for i in range(f.signals_in_file)]
-        signal_labels = f.getSignalLabels()
-        fs = f.getSampleFrequency(0)
-        f._close()
+        raw = mne.io.read_raw_edf(tmpfile.name, preload=True)
+        signals = raw.get_data()
+        signal_labels = raw.ch_names
+        fs = int(raw.info['sfreq'])
     return signals, signal_labels, fs
 
 # Streamlit App
-st.title("Análisis de EEG.")
+st.title("Análisis de EEG")
 st.write("Sube un archivo EDF para analizar las señales EEG.")
 
 uploaded_file = st.file_uploader("Elige un archivo EDF", type=["edf"])
@@ -164,7 +162,7 @@ if uploaded_file is not None:
                 st.pyplot(fig_psd)
                 st.pyplot(fig_topomap)
             except RuntimeError as e:
-                    st.error(f"Error en el montaje: {e}")
+                st.error(f"Error en el montaje: {e}")
 
     if st.button("Generar Reporte Completo en PDF"):
         pdf_filename = "Reporte_Completo_EEG.pdf"
