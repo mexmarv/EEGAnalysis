@@ -2,4 +2,4 @@ streamlit
 numpy
 scipy
 matplotlib
-edfpy
+edflib
