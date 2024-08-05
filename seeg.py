@@ -37,27 +37,26 @@ def validate_edf_file(file):
     if not file.name.endswith('.edf'):
         return False
     try:
+        # Check if the file can be read as an EDF file
         file.seek(0)
-        # Attempt to read a small portion of the file
-        header = file.read(256)
-        # Simple check to see if 'EDF' is in the header
-        return b'EDF' in header
-    except Exception:
+        raw = mne.io.read_raw_edf(file, preload=False)
+        return True
+    except Exception as e:
+        st.error(f"Error al procesar el archivo EDF: {e}")
         return False
 
 # Caching the data
 @st.cache_data
 def load_edf(file):
-    with tempfile.NamedTemporaryFile(delete=False) as tmpfile:
-        tmpfile.write(file.read())
-        tmpfile.flush()
-        tmpfile.seek(0)
-        f = mne.io.read_raw_edf(tmpfile.name, preload=True)
-        signals = [f.get_data(picks=[i])[0] for i in range(f.info['nchan'])]
-        signal_labels = f.info['ch_names']
-        fs = f.info['sfreq']
-        f.close()
-    return signals, signal_labels, fs
+    try:
+        raw = mne.io.read_raw_edf(file, preload=True)
+        signals = [raw.get_data(picks=[i])[0] for i in range(raw.info['nchan'])]
+        signal_labels = raw.info['ch_names']
+        fs = raw.info['sfreq']
+        return signals, signal_labels, fs
+    except Exception as e:
+        st.error(f"Error al cargar el archivo EDF: {e}")
+        return [], [], 0
 
 # Streamlit App
 st.title("Análisis de EEG.")
@@ -70,12 +69,10 @@ if uploaded_file is not None:
         st.error("Error al cargar el archivo EDF: Solo se permiten archivos EDF.")
     else:
         with st.spinner('Cargando archivo...'):
-            try:
-                signals, signal_labels, fs = load_edf(uploaded_file)
-            except Exception as e:
-                st.error(f"Error al procesar el archivo EDF: {e}")
-                st.stop()
-        
+            signals, signal_labels, fs = load_edf(uploaded_file)
+            if not signals:
+                st.stop()  # Stop execution if there's an issue loading the file
+
         st.sidebar.title("Seleccionar Canal para Analizar")
         selected_channel = st.sidebar.selectbox("Selecciona un canal:", signal_labels)
 
