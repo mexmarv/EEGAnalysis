@@ -2,8 +2,7 @@ import streamlit as st
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.signal import butter, filtfilt, welch, find_peaks, coherence
-import tempfile
-import pyedflib
+import edfpy
 from io import BytesIO
 
 # Function to filter the signal
@@ -37,11 +36,10 @@ def load_edf(file):
     try:
         # Use BytesIO to handle the uploaded file
         with BytesIO(file.read()) as tmpfile:
-            f = pyedflib.EdfReader(tmpfile)
-            signals = [f.readSignal(i) for i in range(f.signals_in_file)]
-            signal_labels = f.getSignalLabels()
-            fs = f.getSampleFrequency(0)
-            f._close()
+            with edfpy.EdfReader(tmpfile) as f:
+                signals = [f.read_signal(i) for i in range(f.signals_in_file)]
+                signal_labels = f.get_signal_labels()
+                fs = f.get_sample_frequency(0)
         return signals, signal_labels, fs
     except Exception as e:
         st.error(f"Error al procesar el archivo EDF: {e}")
@@ -178,18 +176,14 @@ if uploaded_file is not None:
                 signal = signals[i]
                 filtered_signal = bandpass_filter(signal, 0.5, 50, fs)
                 filtered_signal = filtered_signal[:len(signal)]
-                
-                band_power = {name: bandpower(filtered_signal, fs, band) for name, band in zip(band_names, bands)}
-                total_power = sum(band_power.values())
-                band_percentage = {name: (power / total_power) * 100 for name, power in band_power.items()}
                 peaks = detect_peaks(filtered_signal, height=np.std(filtered_signal), distance=fs//2)
-                
+
                 duration_in_seconds = 10 * 60
                 if len(filtered_signal) > duration_in_seconds * fs:
                     filtered_signal_10min = filtered_signal[:int(duration_in_seconds * fs)]
                 else:
                     filtered_signal_10min = filtered_signal
-                
+
                 peaks_10min = detect_peaks(filtered_signal_10min, height=np.std(filtered_signal_10min), distance=fs//2)
                 total_peaks_10min = len(peaks_10min)
                 mean_peaks_per_min = total_peaks_10min / 10
