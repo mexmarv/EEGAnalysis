@@ -1,5 +1,5 @@
-edfpy
-scipy
-numpy
-matplotlib
 streamlit
+numpy
+scipy
+matplotlib
+pyedflib
