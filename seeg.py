@@ -3,6 +3,7 @@ import pyedflib
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.signal import butter, filtfilt, welch, find_peaks, coherence
+from scipy.interpolate import interp1d
 import tempfile
 from matplotlib.backends.backend_pdf import PdfPages
 import mne
@@ -41,11 +42,22 @@ def load_edf(file):
         tmpfile.seek(0)
         try:
             f = pyedflib.EdfReader(tmpfile.name)
-            signals = [f.readSignal(i) for i in range(f.signals_in_file)]
-            signal_labels = f.getSignalLabels()
-            fs = f.getSampleFrequency(0)
-            f._close()
-            return signals, signal_labels, fs
+            if f.filetype == pyedflib.FILETYPE_EDFPLUS:
+                signals = []
+                for i in range(f.signals_in_file):
+                    signal = f.readSignal(i)
+                    if np.any(np.isnan(signal)):
+                        # Handle NaNs by interpolation
+                        nans, x = np.isnan(signal), lambda z: z.nonzero()[0]
+                        signal[nans] = np.interp(x(nans), x(~nans), signal[~nans])
+                    signals.append(signal)
+                signal_labels = f.getSignalLabels()
+                fs = f.getSampleFrequency(0)
+                f._close()
+                return signals, signal_labels, fs
+            else:
+                st.error("The file is discontinuous and cannot be read. Please upload a continuous EDF(+) or BDF(+) file.")
+                return None, None, None
         except Exception as e:
             st.error(f"Error reading EDF file: {e}")
             return None, None, None
