@@ -6,7 +6,6 @@ from scipy.signal import butter, filtfilt, welch, find_peaks, coherence
 import tempfile
 from matplotlib.backends.backend_pdf import PdfPages
 import mne
-import numpy as np
 
 # Function to filter the signal
 def bandpass_filter(data, lowcut, highcut, fs, order=2):
@@ -40,12 +39,16 @@ def load_edf(file):
         tmpfile.write(file.read())
         tmpfile.flush()
         tmpfile.seek(0)
-        f = pyedflib.EdfReader(tmpfile.name)
-        signals = [f.readSignal(i) for i in range(f.signals_in_file)]
-        signal_labels = f.getSignalLabels()
-        fs = f.getSampleFrequency(0)
-        f._close()
-    return signals, signal_labels, fs
+        try:
+            f = pyedflib.EdfReader(tmpfile.name)
+            signals = [f.readSignal(i) for i in range(f.signals_in_file)]
+            signal_labels = f.getSignalLabels()
+            fs = f.getSampleFrequency(0)
+            f._close()
+            return signals, signal_labels, fs
+        except Exception as e:
+            st.error(f"Error reading EDF file: {e}")
+            return None, None, None
 
 # Streamlit App
 st.title("Análisis de EEG.")
@@ -56,145 +59,111 @@ uploaded_file = st.file_uploader("Elige un archivo EDF", type=["edf"])
 if uploaded_file is not None:
     with st.spinner('Cargando archivo...'):
         signals, signal_labels, fs = load_edf(uploaded_file)
-
-    st.sidebar.title("Seleccionar Canal para Analizar")
-    selected_channel = st.sidebar.selectbox("Selecciona un canal:", signal_labels)
-    
-    if selected_channel:
-        channel_index = signal_labels.index(selected_channel)
-        signal = signals[channel_index]
-
-        # Filtrado - banda pasa (0.5-50 Hz)
-        filtered_signal = bandpass_filter(signal, 0.5, 50, fs)
-
-        # Asegurarse de que la longitud de la señal filtrada coincida con la original
-        filtered_signal = filtered_signal[:len(signal)]
-
-        # Análisis en bandas de frecuencia
-        bands = [(0.5, 4), (4, 8), (8, 13), (13, 30), (30, 50)]
-        band_names = ['Delta', 'Theta', 'Alpha', 'Beta', 'Gamma']
-
-        # Calcula la potencia en cada banda
-        band_power = {name: bandpower(filtered_signal, fs, band) for name, band in zip(band_names, bands)}
-
-        # Calcular la potencia total
-        total_power = sum(band_power.values())
-
-        # Calcular el porcentaje de cada banda
-        band_percentage = {name: (power / total_power) * 100 for name, power in band_power.items()}
-
-        # Detectar picos
-        peaks = detect_peaks(filtered_signal, height=np.std(filtered_signal), distance=fs//2)
-
-        # Seleccionar los primeros 10 minutos de datos
-        duration_in_seconds = 10 * 60  # 10 minutos
-        if len(filtered_signal) > duration_in_seconds * fs:
-            filtered_signal_10min = filtered_signal[:int(duration_in_seconds * fs)]
+        if signals is None:
+            st.error("No se pudo leer el archivo EDF.")
         else:
-            filtered_signal_10min = filtered_signal
+            st.sidebar.title("Seleccionar Canal para Analizar")
+            selected_channel = st.sidebar.selectbox("Selecciona un canal", signal_labels)
 
-        # Detectar picos en los primeros 10 minutos
-        peaks_10min = detect_peaks(filtered_signal_10min, height=np.std(filtered_signal_10min), distance=fs//2)
+            selected_index = signal_labels.index(selected_channel)
+            signal = signals[selected_index]
 
-        # Calcular media de picos por minuto en los primeros 10 minutos
-        total_peaks_10min = len(peaks_10min)
-        mean_peaks_per_min = total_peaks_10min / 10
-
-        # Mostrar resultados
-        st.header(f"Canal: {selected_channel}")
-
-        st.subheader("Porcentaje en Bandas de Frecuencia")
-        for band_name, percentage in band_percentage.items():
-            st.markdown(f"<span style='color:blue; font-weight:bold;'>{band_name}:</span> {percentage:.2f}%", unsafe_allow_html=True)
-
-        st.subheader("Picos Detectados")
-        st.write(f"Cantidad de picos detectados: {len(peaks)}")
-
-        st.subheader("Picos en los Primeros 10 Minutos")
-        st.write(f"Total de picos en los primeros 10 minutos: {total_peaks_10min}")
-        st.write(f"Media de picos por minuto (Hz) en los primeros 10 minutos: {mean_peaks_per_min:.2f}")
-
-        # Plot topographic map
-        # st.subheader("Topographic Plot")
-        # raw = mne.io.RawArray(signal.reshape(1, -1), mne.create_info(ch_names=[selected_channel], sfreq=fs))
-        # fig = mne.viz.plot_topomap(raw.get_data()[0], pos=mne.channels.make_standard_montage('standard_1020').get_pos(), show=False)
-        # st.pyplot(fig)
-        
-        # Graficar señal filtrada y picos
-        # fig, ax = plt.subplots()
-        # ax.plot(signal, label='Señal original')
-        # ax.plot(filtered_signal, label='Señal filtrada')
-        # valid_peaks = [p for p in peaks if p < len(filtered_signal)]
-        # ax.plot(valid_peaks, filtered_signal[valid_peaks], "x", label='Picos detectados')
-        # ax.set_title(f"Señal y Picos Detectados - {selected_channel}")
-        # ax.legend()
-        # st.pyplot(fig)
-
-        st.subheader("Coherencia con otro canal")
-        other_channel = st.selectbox("Selecciona otro canal para análisis de coherencia", [ch for ch in signal_labels if ch != selected_channel])
-
-        if other_channel:
-            other_channel_index = signal_labels.index(other_channel)
-            other_signal = signals[other_channel_index]
-            f_coh, Cxy = calculate_coherence(filtered_signal, other_signal, fs)
-
+            # Plot the raw signal
+            st.subheader(f"Señal Raw - {selected_channel}")
             fig, ax = plt.subplots()
-            ax.plot(f_coh, Cxy)
-            ax.set_title(f"Coherencia - {selected_channel} y {other_channel}")
-            ax.set_xlabel('Frecuencia (Hz)')
-            ax.set_ylabel('Coherencia')
+            ax.plot(signal)
+            ax.set_title(f"Señal Raw - {selected_channel}")
             st.pyplot(fig)
 
-    if st.button("Generar Reporte Completo en PDF"):
-        pdf_filename = "Reporte_Completo_EEG.pdf"
-        with PdfPages(pdf_filename) as pdf:
-            for i, signal_label in enumerate(signal_labels):
-                signal = signals[i]
-                filtered_signal = bandpass_filter(signal, 0.5, 50, fs)
-                filtered_signal = filtered_signal[:len(signal)]
-                
-                band_power = {name: bandpower(filtered_signal, fs, band) for name, band in zip(band_names, bands)}
-                total_power = sum(band_power.values())
-                band_percentage = {name: (power / total_power) * 100 for name, power in band_power.items()}
-                peaks = detect_peaks(filtered_signal, height=np.std(filtered_signal), distance=fs//2)
-                
-                duration_in_seconds = 10 * 60
-                if len(filtered_signal) > duration_in_seconds * fs:
-                    filtered_signal_10min = filtered_signal[:int(duration_in_seconds * fs)]
-                else:
-                    filtered_signal_10min = filtered_signal
-                
-                peaks_10min = detect_peaks(filtered_signal_10min, height=np.std(filtered_signal_10min), distance=fs//2)
-                total_peaks_10min = len(peaks_10min)
-                mean_peaks_per_min = total_peaks_10min / 10
+            # Bandpass filter the signal
+            lowcut = st.sidebar.slider("Lowcut", 0.1, 30.0, 0.5)
+            highcut = st.sidebar.slider("Highcut", 30.0, 100.0, 50.0)
+            filtered_signal = bandpass_filter(signal, lowcut, highcut, fs)
 
+            # Plot the filtered signal
+            st.subheader(f"Señal Filtrada - {selected_channel}")
+            fig, ax = plt.subplots()
+            ax.plot(filtered_signal)
+            ax.set_title(f"Señal Filtrada - {selected_channel}")
+            st.pyplot(fig)
+
+            # Calculate and plot band power
+            st.subheader("Potencia de Banda")
+            bands = {
+                "Delta (0.5-4 Hz)": (0.5, 4),
+                "Theta (4-8 Hz)": (4, 8),
+                "Alpha (8-12 Hz)": (8, 12),
+                "Beta (12-30 Hz)": (12, 30),
+                "Gamma (30-100 Hz)": (30, 100),
+            }
+
+            band_powers = {band: bandpower(filtered_signal, fs, freq) for band, freq in bands.items()}
+            fig, ax = plt.subplots()
+            ax.bar(band_powers.keys(), band_powers.values())
+            ax.set_title("Potencia de Banda")
+            ax.set_ylabel("Potencia")
+            st.pyplot(fig)
+
+            # Detect peaks
+            st.subheader("Detección de Picos")
+            peaks = detect_peaks(filtered_signal, height=np.std(filtered_signal), distance=fs//2)
+            fig, ax = plt.subplots()
+            ax.plot(filtered_signal)
+            ax.plot(peaks, filtered_signal[peaks], "x")
+            ax.set_title(f"Picos Detectados - {selected_channel}")
+            st.pyplot(fig)
+
+            # Calculate and plot coherence with another channel
+            if len(signal_labels) > 1:
+                st.subheader("Coherencia con Otro Canal")
+                other_channel = st.sidebar.selectbox("Selecciona otro canal", [label for label in signal_labels if label != selected_channel])
+                other_index = signal_labels.index(other_channel)
+                other_signal = signals[other_index]
+
+                f, Cxy = calculate_coherence(filtered_signal, other_signal, fs)
                 fig, ax = plt.subplots()
-                ax.plot(signal, label='Señal original')
-                ax.plot(filtered_signal, label='Señal filtrada')
-                valid_peaks = [p for p in peaks if p < len(filtered_signal)]
-                ax.plot(valid_peaks, filtered_signal[valid_peaks], "x", label='Picos detectados')
-                ax.set_title(f"Señal y Picos Detectados - {signal_label}")
-                ax.legend()
-                pdf.savefig(fig)
-                plt.close(fig)
+                ax.plot(f, Cxy)
+                ax.set_title(f"Coherencia - {selected_channel} y {other_channel}")
+                ax.set_xlabel("Frecuencia (Hz)")
+                ax.set_ylabel("Coherencia")
+                st.pyplot(fig)
 
-                if i < len(signal_labels) - 1:
-                    other_signal = signals[i + 1]
-                    f_coh, Cxy = calculate_coherence(filtered_signal, other_signal, fs)
-                    fig, ax = plt.subplots()
-                    ax.plot(f_coh, Cxy)
-                    ax.set_title(f"Coherencia - {signal_label} y {signal_labels[i + 1]}")
-                    ax.set_xlabel('Frecuencia (Hz)')
-                    ax.set_ylabel('Coherencia')
-                    pdf.savefig(fig)
-                    plt.close(fig)
+            # Generate PDF report
+            st.subheader("Generar Reporte PDF")
+            if st.button("Generar Reporte"):
+                with st.spinner("Generando reporte..."):
+                    pdf_filename = "reporte_eeg.pdf"
+                    with PdfPages(pdf_filename) as pdf:
+                        for i, signal in enumerate(signals):
+                            signal_label = signal_labels[i]
+                            filtered_signal = bandpass_filter(signal, lowcut, highcut, fs)
 
-            st.success("El reporte PDF se ha generado correctamente.")
+                            fig, ax = plt.subplots()
+                            ax.plot(signal, label='Señal original')
+                            ax.plot(filtered_signal, label='Señal filtrada')
+                            peaks = detect_peaks(filtered_signal, height=np.std(filtered_signal), distance=fs//2)
+                            ax.plot(peaks, filtered_signal[peaks], "x", label='Picos detectados')
+                            ax.set_title(f"Señal y Picos Detectados - {signal_label}")
+                            ax.legend()
+                            pdf.savefig(fig)
+                            plt.close(fig)
 
-        with open(pdf_filename, "rb") as file:
-            btn = st.download_button(
-                label="Descargar Reporte Completo",
-                data=file,
-                file_name=pdf_filename,
-                mime="application/octet-stream"
-            )
+                            if i < len(signal_labels) - 1:
+                                other_signal = signals[i + 1]
+                                f_coh, Cxy = calculate_coherence(filtered_signal, other_signal, fs)
+                                fig, ax = plt.subplots()
+                                ax.plot(f_coh, Cxy)
+                                ax.set_title(f"Coherencia - {signal_label} y {signal_labels[i + 1]}")
+                                ax.set_xlabel('Frecuencia (Hz)')
+                                ax.set_ylabel('Coherencia')
+                                pdf.savefig(fig)
+                                plt.close(fig)
+
+                    st.success("El reporte PDF se ha generado correctamente.")
+                    with open(pdf_filename, "rb") as file:
+                        btn = st.download_button(
+                            label="Descargar Reporte Completo",
+                            data=file,
+                            file_name=pdf_filename,
+                            mime="application/octet-stream"
+                        )
