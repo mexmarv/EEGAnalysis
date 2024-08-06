@@ -172,15 +172,53 @@ if uploaded_file is not None:
                             signal_label = signal_labels[i]
                             filtered_signal = bandpass_filter(signal, lowcut, highcut, fs)
 
+                            # Plot raw signal
                             fig, ax = plt.subplots()
-                            ax.plot(signal, label='Señal original')
-                            ax.plot(filtered_signal, label='Señal filtrada')
-                            peaks = detect_peaks(filtered_signal, height=np.std(filtered_signal), distance=fs//2)
-                            ax.plot(peaks, filtered_signal[peaks], "x", label='Picos detectados')
-                            ax.set_title(f"Señal y Picos Detectados - {signal_label}")
-                            ax.legend()
+                            ax.plot(signal)
+                            ax.set_title(f"Señal Raw - {signal_label}")
                             pdf.savefig(fig)
                             plt.close(fig)
+
+                            # Plot filtered signal
+                            fig, ax = plt.subplots()
+                            ax.plot(filtered_signal)
+                            ax.set_title(f"Señal Filtrada - {signal_label}")
+                            pdf.savefig(fig)
+                            plt.close(fig)
+
+                            # Band power
+                            band_powers = {band: bandpower(filtered_signal, fs, freq) for band, freq in bands.items()}
+                            fig, ax = plt.subplots()
+                            ax.bar(band_powers.keys(), band_powers.values())
+                            ax.set_title("Potencia de Banda")
+                            ax.set_ylabel("Potencia")
+                            pdf.savefig(fig)
+                            plt.close(fig)
+
+                            # Peaks in the first 10 minutes
+                            duration_in_seconds = 10 * 60  # 10 minutes
+                            if len(filtered_signal) > duration_in_seconds * fs:
+                                filtered_signal_10min = filtered_signal[:int(duration_in_seconds * fs)]
+                            else:
+                                filtered_signal_10min = filtered_signal
+                            peaks_10min = detect_peaks(filtered_signal_10min, height=np.std(filtered_signal_10min), distance=fs//2)
+                            total_peaks_10min = len(peaks_10min)
+                            mean_peaks_per_min = total_peaks_10min / 10
+
+                            fig, ax = plt.subplots()
+                            ax.plot(filtered_signal_10min)
+                            ax.plot(peaks_10min, filtered_signal_10min[peaks_10min], "x")
+                            ax.set_title(f"Picos Detectados en los primeros 10 minutos - {signal_label}")
+                            pdf.savefig(fig)
+                            plt.close(fig)
+
+                            # Write band powers and peak analysis to PDF
+                            pdf.text(0.1, 0.9, f"Potencia de Banda para {signal_label}:")
+                            for band, power in band_powers.items():
+                                pdf.text(0.1, 0.9 - 0.05 * (list(bands.keys()).index(band) + 1), f"{band}: {power:.2f}")
+
+                            pdf.text(0.1, 0.3, f"Cantidad total de picos en los primeros 10 minutos: {total_peaks_10min}")
+                            pdf.text(0.1, 0.25, f"Promedio de picos por minuto en los primeros 10 minutos: {mean_peaks_per_min:.2f}")
 
                             if i < len(signal_labels) - 1:
                                 other_signal = signals[i + 1]
