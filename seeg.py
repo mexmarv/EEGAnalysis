@@ -116,13 +116,35 @@ if uploaded_file is not None:
             ax.set_ylabel("Potencia")
             st.pyplot(fig)
 
+            st.write("### Potencia de Banda (en texto)")
+            for band, power in band_powers.items():
+                st.write(f"{band}: {power:.2f}")
+
             # Detect peaks
-            st.subheader("Detección de Picos")
             peaks = detect_peaks(filtered_signal, height=np.std(filtered_signal), distance=fs//2)
+
+            # Select the first 10 minutes of data
+            duration_in_seconds = 10 * 60  # 10 minutes
+            if len(filtered_signal) > duration_in_seconds * fs:
+                filtered_signal_10min = filtered_signal[:int(duration_in_seconds * fs)]
+            else:
+                filtered_signal_10min = filtered_signal
+
+            # Detect peaks in the first 10 minutes
+            peaks_10min = detect_peaks(filtered_signal_10min, height=np.std(filtered_signal_10min), distance=fs//2)
+
+            # Calculate mean peaks per minute in the first 10 minutes
+            total_peaks_10min = len(peaks_10min)
+            mean_peaks_per_min = total_peaks_10min / 10
+
+            st.subheader("Detección de Picos en los primeros 10 minutos")
+            st.write(f"Cantidad total de picos en los primeros 10 minutos: {total_peaks_10min}")
+            st.write(f"Promedio de picos por minuto en los primeros 10 minutos: {mean_peaks_per_min:.2f}")
+
             fig, ax = plt.subplots()
-            ax.plot(filtered_signal)
-            ax.plot(peaks, filtered_signal[peaks], "x")
-            ax.set_title(f"Picos Detectados - {selected_channel}")
+            ax.plot(filtered_signal_10min)
+            ax.plot(peaks_10min, filtered_signal_10min[peaks_10min], "x")
+            ax.set_title(f"Picos Detectados en los primeros 10 minutos - {selected_channel}")
             st.pyplot(fig)
 
             # Calculate and plot coherence with another channel
