@@ -64,7 +64,8 @@ def load_edf(file):
 
 # Streamlit App
 st.title("Análisis de EEG.")
-st.write("Sube un archivo EDF para analizar las señales EEG.")
+st.write("Sube un archivo EDF para analizar las señales.")
+st.write("Lab: Dr. Marina Cardoso y Marvin Nahmias.")
 
 uploaded_file = st.file_uploader("Elige un archivo EDF", type=["edf"])
 
@@ -213,12 +214,18 @@ if uploaded_file is not None:
                             plt.close(fig)
 
                             # Write band powers and peak analysis to PDF
-                            pdf.text(0.1, 0.9, f"Potencia de Banda para {signal_label}:")
+                            fig = plt.figure(figsize=(8, 6))
+                            plt.axis('off')
+                            plt.text(0.1, 0.9, f"Potencia de Banda para {signal_label}:", fontsize=12, ha='left')
+                            y_text = 0.85
                             for band, power in band_powers.items():
-                                pdf.text(0.1, 0.9 - 0.05 * (list(bands.keys()).index(band) + 1), f"{band}: {power:.2f}")
+                                plt.text(0.1, y_text, f"{band}: {power:.2f}", fontsize=12, ha='left')
+                                y_text -= 0.05
 
-                            pdf.text(0.1, 0.3, f"Cantidad total de picos en los primeros 10 minutos: {total_peaks_10min}")
-                            pdf.text(0.1, 0.25, f"Promedio de picos por minuto en los primeros 10 minutos: {mean_peaks_per_min:.2f}")
+                            plt.text(0.1, 0.5, f"Cantidad total de picos en los primeros 10 minutos: {total_peaks_10min}", fontsize=12, ha='left')
+                            plt.text(0.1, 0.45, f"Promedio de picos por minuto en los primeros 10 minutos: {mean_peaks_per_min:.2f}", fontsize=12, ha='left')
+                            pdf.savefig(fig)
+                            plt.close(fig)
 
                             if i < len(signal_labels) - 1:
                                 other_signal = signals[i + 1]
