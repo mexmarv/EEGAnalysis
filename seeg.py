@@ -63,11 +63,17 @@ def load_edf(file):
             return None, None, None
 
 # Streamlit App
-st.title("Análisis de EEG.")
-st.write("Sube un archivo EDF para analizar las señales.")
-st.write("Lab: Dr. Marina Cardoso y Marvin Nahmias.")
+ecg_image_url = 'https://yourdomain.com/path/to/ecg_image.png'
 
-uploaded_file = st.file_uploader("Elige un archivo EDF", type=["edf"])
+st.image(ecg_image_url, caption='ECG Example', use_column_width=True)
+
+st.title("Análisis de EEG.")
+st.write("Sube un archivo EDF para analizar las señales EEG.")
+
+# Adding authors right under the main title and description
+st.markdown('**Autores:** Dr. Marina Cardoso y M.Sc. Marvin Nahmias')
+
+uploaded_file = st.file_uploader("Sube un archivo de tipo EDF+ o BDF+ :", type=["edf"])
 
 if uploaded_file is not None:
     with st.spinner('Cargando archivo...'):
