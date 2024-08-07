@@ -60,7 +60,6 @@ def calculate_coherence(signal1, signal2, fs):
     return f, Cxy
 
 # Streamlit App
-st.image('ecg_image.png', caption='ECG Example', use_column_width=True)
 st.title("Análisis de EEG.")
 st.write("Sube un archivo EDF para analizar las señales EEG.")
 st.markdown('**Autores:** Dr. Marina Cardoso y M.Sc. Marvin Nahmias')
