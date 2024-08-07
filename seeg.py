@@ -63,10 +63,6 @@ def load_edf(file):
             return None, None, None
 
 # Streamlit App
-ecg_image_url = 'https://neuro-praxis-dus.de/media/pages/diagnostik/elektroenzephalographie/modules/eeg-text/5db7120a26-1673453655/emptyname-326-870x-q75.jpg'
-
-st.image(ecg_image_url, caption='Análisis de EEG.', use_column_width=True)
-
 st.title("Análisis de Señales de un EEG")
 st.write("Analiza los canales del archivo, calcula picos, coherencia y filtros.")
 
