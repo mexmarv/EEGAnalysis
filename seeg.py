@@ -8,7 +8,33 @@ import tempfile
 from matplotlib.backends.backend_pdf import PdfPages
 import mne
 
-# Function to filter the signal
+# Caching the data loader function
+@st.cache(allow_output_mutation=True, suppress_st_warning=True)
+def load_edf(file):
+    with tempfile.NamedTemporaryFile(delete=False) as tmpfile:
+        tmpfile.write(file.read())
+        tmpfile.flush()
+        tmpfile.seek(0)
+        try:
+            f = pyedflib.EdfReader(tmpfile.name)
+            signals = []
+            for i in range(f.signals_in_file):
+                signal = f.readSignal(i)
+                if np.any(np.isnan(signal)):
+                    # Handle NaNs by interpolation
+                    nans, x = np.isnan(signal), lambda z: z.nonzero()[0]
+                    signal[nans] = np.interp(x(nans), x(~nans), signal[~nans])
+                signals.append(signal)
+            signal_labels = f.getSignalLabels()
+            fs = f.getSampleFrequency(0)
+            f._close()
+            return signals, signal_labels, fs
+        except Exception as e:
+            st.error(f"Error reading EDF file: {e}")
+            return None, None, None
+
+# Caching the signal processing functions
+@st.cache
 def bandpass_filter(data, lowcut, highcut, fs, order=2):
     nyquist = 0.5 * fs
     low = lowcut / nyquist
@@ -17,59 +43,29 @@ def bandpass_filter(data, lowcut, highcut, fs, order=2):
     y = filtfilt(b, a, data)
     return y
 
-# Function to calculate band power
+@st.cache
 def bandpower(data, fs, band):
     f, Pxx = welch(data, fs=fs, nperseg=1024)
     freq_ix = np.where((f >= band[0]) & (f <= band[1]))[0]
     return np.trapz(Pxx[freq_ix], f[freq_ix])
 
-# Function to detect peaks in the signal
+@st.cache
 def detect_peaks(data, height=None, distance=None):
     peaks, _ = find_peaks(data, height=height, distance=distance)
     return peaks
 
-# Function to calculate coherence between two signals
+@st.cache
 def calculate_coherence(signal1, signal2, fs):
     f, Cxy = coherence(signal1, signal2, fs=fs, nperseg=1024)
     return f, Cxy
 
-# Caching the data
-@st.cache_data
-def load_edf(file):
-    with tempfile.NamedTemporaryFile(delete=False) as tmpfile:
-        tmpfile.write(file.read())
-        tmpfile.flush()
-        tmpfile.seek(0)
-        try:
-            f = pyedflib.EdfReader(tmpfile.name)
-            if f.filetype == pyedflib.FILETYPE_EDFPLUS:
-                signals = []
-                for i in range(f.signals_in_file):
-                    signal = f.readSignal(i)
-                    if np.any(np.isnan(signal)):
-                        # Handle NaNs by interpolation
-                        nans, x = np.isnan(signal), lambda z: z.nonzero()[0]
-                        signal[nans] = np.interp(x(nans), x(~nans), signal[~nans])
-                    signals.append(signal)
-                signal_labels = f.getSignalLabels()
-                fs = f.getSampleFrequency(0)
-                f._close()
-                return signals, signal_labels, fs
-            else:
-                st.error("The file is discontinuous and cannot be read. Please upload a continuous EDF(+) or BDF(+) file.")
-                return None, None, None
-        except Exception as e:
-            st.error(f"Error reading EDF file: {e}")
-            return None, None, None
-
 # Streamlit App
-st.title("Análisis de Señales de un EEG")
-st.write("Analiza los canales del archivo, calcula picos, coherencia y filtros.")
-
-# Adding authors right under the main title and description
+st.image('ecg_image.png', caption='ECG Example', use_column_width=True)
+st.title("Análisis de EEG.")
+st.write("Sube un archivo EDF para analizar las señales EEG.")
 st.markdown('**Autores:** Dr. Marina Cardoso y M.Sc. Marvin Nahmias')
 
-uploaded_file = st.file_uploader("Sube un archivo de tipo EDF+ o BDF+ :", type=["edf"])
+uploaded_file = st.file_uploader("Elige un archivo EDF", type=["edf"])
 
 if uploaded_file is not None:
     with st.spinner('Cargando archivo...'):
@@ -79,7 +75,6 @@ if uploaded_file is not None:
         else:
             st.sidebar.title("Seleccionar Canal para Analizar")
             selected_channel = st.sidebar.selectbox("Selecciona un canal", signal_labels)
-
             selected_index = signal_labels.index(selected_channel)
             signal = signals[selected_index]
 
@@ -111,17 +106,12 @@ if uploaded_file is not None:
                 "Beta (12-30 Hz)": (12, 30),
                 "Gamma (30-100 Hz)": (30, 100),
             }
-
             band_powers = {band: bandpower(filtered_signal, fs, freq) for band, freq in bands.items()}
             fig, ax = plt.subplots()
             ax.bar(band_powers.keys(), band_powers.values())
             ax.set_title("Potencia de Banda")
             ax.set_ylabel("Potencia")
             st.pyplot(fig)
-
-            st.write("### Potencia de Banda (en texto)")
-            for band, power in band_powers.items():
-                st.write(f"{band}: {power:.2f}")
 
             # Detect peaks
             peaks = detect_peaks(filtered_signal, height=np.std(filtered_signal), distance=fs//2)
