@@ -112,6 +112,10 @@ if uploaded_file is not None:
             ax.set_ylabel("Potencia")
             st.pyplot(fig)
 
+            # Display band powers in a table
+            st.subheader("Potencia de Banda (Detalles)")
+            st.table(band_powers)
+
             # Detect peaks
             peaks = detect_peaks(filtered_signal, height=np.std(filtered_signal), distance=fs//2)
 
@@ -184,23 +188,6 @@ if uploaded_file is not None:
                             ax.bar(band_powers.keys(), band_powers.values())
                             ax.set_title("Potencia de Banda")
                             ax.set_ylabel("Potencia")
-                            pdf.savefig(fig)
-                            plt.close(fig)
-
-                            # Peaks in the first 10 minutes
-                            duration_in_seconds = 10 * 60  # 10 minutes
-                            if len(filtered_signal) > duration_in_seconds * fs:
-                                filtered_signal_10min = filtered_signal[:int(duration_in_seconds * fs)]
-                            else:
-                                filtered_signal_10min = filtered_signal
-                            peaks_10min = detect_peaks(filtered_signal_10min, height=np.std(filtered_signal_10min), distance=fs//2)
-                            total_peaks_10min = len(peaks_10min)
-                            mean_peaks_per_min = total_peaks_10min / 10
-
-                            fig, ax = plt.subplots()
-                            ax.plot(filtered_signal_10min)
-                            ax.plot(peaks_10min, filtered_signal_10min[peaks_10min], "x")
-                            ax.set_title(f"Picos Detectados en los primeros 10 minutos - {signal_label}")
                             pdf.savefig(fig)
                             plt.close(fig)
 
