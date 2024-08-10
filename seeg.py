@@ -9,7 +9,7 @@ from matplotlib.backends.backend_pdf import PdfPages
 import mne
 
 # Caching the data loader function
-@st.cache_data(allow_output_mutation=True, suppress_st_warning=True)
+# @st.cache_data(allow_output_mutation=True, suppress_st_warning=True)
 def load_edf(file):
     with tempfile.NamedTemporaryFile(delete=False) as tmpfile:
         tmpfile.write(file.read())
@@ -34,7 +34,7 @@ def load_edf(file):
             return None, None, None
 
 # Caching the signal processing functions
-@st.cache_data
+# @st.cache_data
 def bandpass_filter(data, lowcut, highcut, fs, order=2):
     nyquist = 0.5 * fs
     low = lowcut / nyquist
@@ -43,18 +43,18 @@ def bandpass_filter(data, lowcut, highcut, fs, order=2):
     y = filtfilt(b, a, data)
     return y
 
-@st.cache_data
+# @st.cache_data
 def bandpower(data, fs, band):
     f, Pxx = welch(data, fs=fs, nperseg=1024)
     freq_ix = np.where((f >= band[0]) & (f <= band[1]))[0]
     return np.trapz(Pxx[freq_ix], f[freq_ix])
 
-@st.cache_data
+# @st.cache_data
 def detect_peaks(data, height=None, distance=None):
     peaks, _ = find_peaks(data, height=height, distance=distance)
     return peaks
 
-@st.cache_data
+# @st.cache_data
 def calculate_coherence(signal1, signal2, fs):
     f, Cxy = coherence(signal1, signal2, fs=fs, nperseg=1024)
     return f, Cxy
